@@ -1,0 +1,4 @@
+Hello, this is a test file!
+This file contains some initial content.
+We will edit this later.
+This line was added by Claude Code!
