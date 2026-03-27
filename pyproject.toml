@@ -7,6 +7,9 @@ dependencies = [
     "click>=8.1", 
     "anthropic>=0.30", 
     "pydantic-settings>=2.0",
+    "rich>=13.0",
+    "textual>=0.60",
+    "tomli-w>=1.0",
 ]
 
 [project.scripts]

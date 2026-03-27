@@ -11,6 +11,7 @@ from orch.session.manager import create_session_id, get_session_path, list_sessi
 from orch.session.store import save_message, load_messages
 from orch.prompt.builder import build_system_prompt
 from orch.config.settings import get_settings
+from orch.tui.components.markdown import render_markdown
 
 def run_agent(session_id=None):
     """Run an interactive agent loop."""
@@ -71,7 +72,7 @@ def run_agent(session_id=None):
 
             for block in response.content:
                 if block.type == "text":
-                    print(block.text)
+                    render_markdown(block.text)
                 elif block.type == "tool_use":
                     print(f"\n[{block.name}: {block.input}]")
                     tool = tool_map[block.name]
@@ -98,6 +99,46 @@ def run_agent(session_id=None):
                 messages.append(assistant_msg)
                 save_message(session_path, assistant_msg)
                 break
+
+def single_turn(messages, client, tools, tool_map):
+    """Process one user message and return the response text."""
+    parts = []
+
+    while True:
+        response = client.messages.create(
+            model=get_settings().model,
+            max_tokens=get_settings().max_tokens,
+            system=build_system_prompt(),
+            tools=tools,
+            messages=messages,
+        )
+
+        for block in response.content:
+            if block.type == "text":
+                parts.append(block.text)
+            elif block.type == "tool_use":
+                parts.append(f"\n**[{block.name}]**: `{block.input}`\n")
+                tool = tool_map[block.name]
+                result = tool.run(**block.input)
+                parts.append(f"```\n{result}\n```\n")
+                messages.append({"role": "assistant", "content": _serialize_content(response.content)})
+                messages.append({
+                     "role": "user",
+                     "content": [
+                          {
+                               "type": "tool_result",
+                               "tool_use_id": block.id,
+                               "content": result,
+                          }
+                     ],
+                })
+
+        if response.stop_reason == "end_turn":
+            messages.append({"role": "assistant", "content": _serialize_content(response.content)})
+            break
+
+    return "\n".join(parts)
+    
                     
 def _serialize_content(content):
     """Convert API response content blocks to JSON-serializable dicts."""
